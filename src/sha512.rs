@@ -1,6 +1,7 @@
 
 use std::io;
 use std::fs;
+use crate::basic_functions::BasicFunctions;
 
 struct IterationBlock {
   bytes_readed : u128,
@@ -10,6 +11,7 @@ struct IterationBlock {
 }
 
 impl IterationBlock {
+  // initialize a new IterationBlock instance
   fn new() -> Self {
     let iblock : IterationBlock = IterationBlock {
       bytes_readed : 0,
@@ -20,6 +22,30 @@ impl IterationBlock {
     return iblock;
   }
 
+  fn parse_block(&self) -> [u64; 16] {
+    let mut x : [u64; 16] = [0; 16];
+    let mut iteration = 0;
+    while iteration < 16 {
+      x[iteration] = fuse_64(&self.buffer[(iteration*8)..(iteration*8 + 8)]);
+      iteration += 1;
+    }
+    return x;
+  }
+
+}
+
+// fuse an array of 8 u8 into a u64 BIG ENDIAN
+ fn fuse_64(array : &[u8]) -> u64 {
+  assert_eq!(array.len(), 8);
+  let mut x : u64 = 0;
+  let mut iteration = 0;
+  for n in array {
+    let mut aux : u64 = *n as u64;
+    aux = aux << (56 - (iteration * 8));
+    x = x | aux;
+    iteration += 1;
+  }
+  return x;
 }
 
 fn get_next_block(file_buffer : &mut io::BufReader<&fs::File>, iterator : &mut IterationBlock) {
@@ -71,19 +97,31 @@ fn print_block(block : & [u8; 128]) {
   for n in block {
     iteration += 1;
     print!("{:0>2x} ", n);
-    if iteration % 16 == 0 {
+    if iteration % 8 == 0 {
       println!();
     }
+  }
+}
+
+fn print_parsed_block(block : & [u64; 16]) {
+  let mut iteration = 0;
+  for n in block {
+  
+    println!("{:<3}: {:0>16x}", iteration, n);
+    iteration += 1;
   }
 }
 
 pub fn hash_from_file(file : & fs::File) {
   let mut buffer_read =io::BufReader::new(file);
   let mut iterator = IterationBlock::new();
+  let mut parsed_block : [u64; 16] = [0 ; 16];
   while iterator.finished == false {
     get_next_block(&mut buffer_read, &mut iterator);
-    //println!();
-    //print_block(&iterator.buffer);
+    println!();
+    print_block(&iterator.buffer);
+    parsed_block = iterator.parse_block();
+    print_parsed_block(&parsed_block);
   }
 
 
@@ -94,8 +132,6 @@ pub fn choose(x : u64, y : u64, z : u64) -> u64 {(x & y) ^ (!x & z)}
 
 #[inline]
 pub fn majority(x : u64, y : u64, z : u64) -> u64 {(x & y) ^ (x &  z) ^ (y & z)}
-
-use crate::basic_functions::BasicFunctions;
 
 #[inline]
 pub fn upper_sigma0 (x : u64) -> u64 {
@@ -154,3 +190,32 @@ pub const INITHASH : [u64; 8] = [
   0x6a09e667f3bcc908, 0xbb67ae8584caa73b, 0x3c6ef372fe94f82b, 0xa54ff53a5f1d36f1,
   0x510e527fade682d1, 0x9b05688c2b3e6c1f, 0x1f83d9abfb41bd6b, 0x5be0cd19137e2179
 ];
+
+#[cfg(test)]
+mod sha512_tests {
+
+  #[test]
+  fn right_shift_test() {
+    let x : u64 = crate::basic_functions::BasicFunctions::right_shift(&1000, 30);
+    assert_eq!(x, (1000 >> 30))
+  }
+
+  #[test]
+  fn right_rotation_test() {
+    let x : u32 = crate::basic_functions::BasicFunctions::right_rotation(&1000, 30);
+    assert_eq!(x, 4000);
+  }
+
+  #[test]
+  fn left_rotation_test() {
+    let x : u32 = crate::basic_functions::BasicFunctions::left_rotation(&1000, 30);
+    assert_eq!(x, 250);
+  }
+
+  #[test]
+  fn fuse_64_test() {
+    let x : [u8; 8] = [0xFF; 8];
+    let y = crate::sha512::fuse_64(&x);
+    assert_eq!(y, 0xFFFFFFFFFFFFFFFF);
+  }
+}
