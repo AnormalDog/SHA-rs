@@ -17,4 +17,10 @@ mod tests {
     assert_eq!(x, 4000);
   }
 
+  #[test]
+  fn left_rotation_test() {
+    let x : u32 = crate::basic_functions::BasicFunctions::left_rotation(&1000, 30);
+    assert_eq!(x, 250);
+  }
+
 }

@@ -16,23 +16,6 @@ pub trait BasicFunctions {
   fn right_rotation(&self, n : usize) -> Self;
 }
 
-impl BasicFunctions for u128 {
-  fn right_rotation(&self, n : usize) -> Self {
-    assert!(n < U128SIZE);
-    (self >> n) | (self << (U128SIZE - n)) 
-  }
-
-  fn left_rotation(&self, n : usize) -> Self {
-    assert!(n < U128SIZE);
-    (self << n) | (self >> (U128SIZE - n))
-  }
-
-  fn right_shift(&self, n : usize) -> Self {
-    assert!(n < U128SIZE);
-    self >> n
-  }
-}
-
 impl BasicFunctions for u64 {
   fn right_rotation(&self, n : usize) -> Self {
     assert!(n < U64SIZE);
