@@ -6,7 +6,7 @@ A library that implement multiple functions in rust. I made this only for learn,
 ## Planned functions
 
 - [ ]  SHA256
-- [ ]  SHA512
+- [x]  SHA512
 
 ## License
 
