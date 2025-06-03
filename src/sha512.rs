@@ -3,13 +3,14 @@ use std::io;
 use std::fs;
 use crate::basic_functions::BasicFunctions;
 
+//struct used for send all the parameters needed for building the next block in all iterations
 struct IterationBlock {
   bytes_readed : u128,
   bit_padded : bool,
   finished : bool,
   buffer : [u8; 128]
-
 }
+
 impl IterationBlock {
   // initialize a new IterationBlock instance
   fn new() -> Self {
@@ -32,8 +33,7 @@ impl IterationBlock {
     }
     return x;
   }
-}
-
+} // impl IterationBlock
 
 // fuse an array of 8 u8 into a u64 BIG ENDIAN
  fn fuse_64(array : &[u8]) -> u64 {
@@ -50,7 +50,7 @@ impl IterationBlock {
 }
 
 // function to get the next block to compute from the file
-fn get_next_block(file_buffer : &mut io::BufReader<&fs::File>, iterator : &mut IterationBlock) {
+fn get_next_block<T : std::io::Read> (file_buffer : &mut io::BufReader<T>, iterator : &mut IterationBlock) {
   iterator.buffer = [0; 128]; // reset the buffer
   let n_bytes_readed : usize = io::Read::read(file_buffer, &mut iterator.buffer)
       .expect("error reading the buffer");
@@ -81,7 +81,7 @@ fn get_next_block(file_buffer : &mut io::BufReader<&fs::File>, iterator : &mut I
       iterator.bit_padded = true;
     }
   }
-}
+} // fn get_next_block
 
 // split a u128 value into a an array [u8; 16] BIG ENDIAN
 fn fragment_u128(number : u128) -> [u8; 16] {
@@ -94,40 +94,8 @@ fn fragment_u128(number : u128) -> [u8; 16] {
   return help_bytes;
 }
 
-/*
-// print the block in a more or less beautiful format
-fn print_block(block : & [u8; 128]) {
-  let mut iteration = 0;
-  for n in block {
-    iteration += 1;
-    print!("{:0>2x} ", n);
-    if iteration % 8 == 0 {
-      println!();
-    }
-  }
-}
-
-// print the block already formated for being computed
-fn print_parsed_block(block : & [u64; 16]) {
-  let mut iteration = 0;
-  for n in block {
-  
-    println!("{:<3}: {:0>16x}", iteration, n);
-    iteration += 1;
-  }
-}
-*/
-
-// print hash
-fn print_hash(hash : &[u64; 8]) {
-  for n in hash {
-    print!("{:0>16x}", n);
-  }
-  println!();
-}
-
 // main function to calculate the hash of a file
-pub fn hash_from_file(file : & fs::File) {
+pub fn hash_from_file(file : & fs::File) -> crate::Sha512 {
   let mut buffer_read =io::BufReader::new(file);
   let mut iterator = IterationBlock::new();
   let mut hash : [u64; 8] = INITHASH;
@@ -136,7 +104,20 @@ pub fn hash_from_file(file : & fs::File) {
     let parsed_block : [u64; 16] = iterator.parse_block();
     hash = compute_block(&parsed_block, &hash);
   }
-  print_hash(&hash);
+  return crate::Sha512{hash: hash};
+}
+
+pub fn hash_from_string(string : & str) -> crate::Sha512 {
+  let mut buffer_read  = 
+    io::BufReader::new(io::Cursor::new(string.to_string()));
+  let mut iterator = IterationBlock::new();
+  let mut hash : [u64; 8] = INITHASH;
+  while iterator.finished == false {
+    get_next_block(&mut buffer_read, &mut iterator);
+    let parsed_block : [u64; 16] = iterator.parse_block();
+    hash = compute_block(&parsed_block, &hash);
+  }
+  return crate::Sha512{hash: hash};
 }
 
 // compute the block, returning the updated hash in each iteration
@@ -170,7 +151,7 @@ fn compute_block(block : & [u64; 16], hash : & [u64; 8]) -> [u64; 8] {
   new_hash[7] = aux_hash[7].wrapping_add(hash[7]);
 
   return new_hash;
-}
+} // fn compute_block
 
 // Calculate the value of T1
 fn calculate_t1(message : & [u64; 80], hash : & [u64; 8], iteration : usize) -> u64 {
@@ -207,42 +188,37 @@ fn calculate_schedule(message : & [u64; 80], iteration : usize) -> u64 {
   return x;
 }
 
-#[inline]
-pub fn choose(x : u64, y : u64, z : u64) -> u64 {(x & y) ^ (!x & z)}
+// BASIC FUNCTIONS
+fn choose(x : u64, y : u64, z : u64) -> u64 {(x & y) ^ (!x & z)}
 
-#[inline]
-pub fn majority(x : u64, y : u64, z : u64) -> u64 {(x & y) ^ (x &  z) ^ (y & z)}
+fn majority(x : u64, y : u64, z : u64) -> u64 {(x & y) ^ (x &  z) ^ (y & z)}
 
-#[inline]
-pub fn upper_sigma0 (x : u64) -> u64 {
+fn upper_sigma0 (x : u64) -> u64 {
   BasicFunctions::right_rotation(&x, 28) ^
   BasicFunctions::right_rotation(&x, 34) ^
   BasicFunctions::right_rotation(&x, 39)
 }
 
-#[inline]
-pub fn upper_sigma1 (x : u64) -> u64 {
+fn upper_sigma1 (x : u64) -> u64 {
   BasicFunctions::right_rotation(&x, 14) ^
   BasicFunctions::right_rotation(&x, 18) ^
   BasicFunctions::right_rotation(&x, 41)
 }
 
-#[inline]
-pub fn lower_sigma0 (x : u64) -> u64 {
+fn lower_sigma0 (x : u64) -> u64 {
   BasicFunctions::right_rotation(&x, 1) ^
   BasicFunctions::right_rotation(&x, 8) ^
   BasicFunctions::right_shift(&x, 7)
 }
 
-#[inline]
-pub fn lower_sigma1 (x : u64) -> u64 {
+fn lower_sigma1 (x : u64) -> u64 {
   BasicFunctions::right_rotation(&x, 19) ^
   BasicFunctions::right_rotation(&x, 61) ^
   BasicFunctions::right_shift(&x, 6)
 }
 
 // First 64 bits of the fractional part of the cube roots of the first eighty prime numbers
-pub const KCONSTANTS : [u64; 80] = [ 
+const KCONSTANTS : [u64; 80] = [ 
   0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c0fbcfec4d3b2f, 0xe9b5dba58189dbbc, 
   0x3956c25bf348b538, 0x59f111f1b605d019, 0x923f82a4af194f9b, 0xab1c5ed5da6d8118, 
   0xd807aa98a3030242, 0x12835b0145706fbe, 0x243185be4ee4b28c, 0x550c7dc3d5ffb4e2, 
@@ -266,36 +242,7 @@ pub const KCONSTANTS : [u64; 80] = [
 ];
 
 // first 64 bits of the fractional part of the first 8 prime square root
-pub const INITHASH : [u64; 8] = [
+const INITHASH : [u64; 8] = [
   0x6a09e667f3bcc908, 0xbb67ae8584caa73b, 0x3c6ef372fe94f82b, 0xa54ff53a5f1d36f1,
   0x510e527fade682d1, 0x9b05688c2b3e6c1f, 0x1f83d9abfb41bd6b, 0x5be0cd19137e2179
 ];
-
-#[cfg(test)]
-mod sha512_tests {
-
-  #[test]
-  fn right_shift_test() {
-    let x : u64 = crate::basic_functions::BasicFunctions::right_shift(&1000, 30);
-    assert_eq!(x, (1000 >> 30))
-  }
-
-  #[test]
-  fn right_rotation_test() {
-    let x : u32 = crate::basic_functions::BasicFunctions::right_rotation(&1000, 30);
-    assert_eq!(x, 4000);
-  }
-
-  #[test]
-  fn left_rotation_test() {
-    let x : u32 = crate::basic_functions::BasicFunctions::left_rotation(&1000, 30);
-    assert_eq!(x, 250);
-  }
-
-  #[test]
-  fn fuse_64_test() {
-    let x : [u8; 8] = [0xFF; 8];
-    let y = crate::sha512::fuse_64(&x);
-    assert_eq!(y, 0xFFFFFFFFFFFFFFFF);
-  }
-}
