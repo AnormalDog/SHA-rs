@@ -14,9 +14,9 @@ Library that implement multiple secure hash algorithms functions in rust.
 - [x]  SHA512
 
 ## Planned struct implementations
-- [x] Print
-- [ ] to_string
-- [ ] to_bytes
+- [x] print
+- [x] to_string
+- [x] to_bytes
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)

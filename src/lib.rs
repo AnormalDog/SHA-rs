@@ -4,6 +4,7 @@ mod sha256;
 mod basic_functions;
 
 use std::fs;
+use std::fmt::Write;
 
 pub struct Sha512 {
   hash : [u64; 8]
@@ -15,6 +16,24 @@ impl Sha512 {
       print!("{:0>8x}", n);
     }
     println!();
+  }
+  pub fn to_string(&self) -> String {
+    let mut string = String::new();
+    for n in self.hash {
+      write!(&mut string, "{:0>16x}", n).expect("error reading from hash array. May be empty?");
+    }
+    return string;
+  }
+
+  pub fn to_bytes(&self) -> [u8; 64] {
+    let mut array : [u8; 64] = [8; 64];
+    let mut iteration : usize = 0;
+    for n in self.hash {
+      let splited : [u8; 8] = split_u64_u8(n);
+      array[(iteration*8)..(iteration*8 + 8)].copy_from_slice(splited.as_slice());
+      iteration += 1;
+    }
+    return array;
   }
 } // impl Sha512
 
@@ -38,9 +57,19 @@ impl Hash for Sha512 {
   }
 }
 
+// Return an array in BIG ENDIAN
+pub fn split_u64_u8(number : u64) -> [u8; 8] {
+  let mut array : [u8; 8] = [0; 8];
+  for n in 0..8 {
+    array[n] = (number >> (7- n) * 8) as u8;
+  }
+  return array;
+}
+
 #[cfg(test)]
 mod tests {
     use crate::Sha512;
+    use std::fmt::Write;
 
   #[test]
   fn sha512_parity() {
@@ -51,5 +80,19 @@ mod tests {
     let x : Sha512 = crate::Hash::from_string(&random_text);
     let y : Sha512 = crate::Hash::from_file(&file);
     assert_eq!(x.hash, y.hash);
+  }
+
+  #[test]
+  fn sha512_methods() {
+    let random_text = String::from("something very not random");
+    let hash : Sha512 = crate::Hash::from_string(&random_text);
+    let x = hash.to_string();
+    let mut y : String = String::new();
+
+    let bytes = hash.to_bytes();
+    for n in bytes {
+      write!(&mut y, "{:0>2x}", n).unwrap();
+    }
+    assert_eq!(x, y);
   }
 }
