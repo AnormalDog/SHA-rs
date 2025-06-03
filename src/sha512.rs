@@ -8,8 +8,8 @@ struct IterationBlock {
   bit_padded : bool,
   finished : bool,
   buffer : [u8; 128]
-}
 
+}
 impl IterationBlock {
   // initialize a new IterationBlock instance
   fn new() -> Self {
@@ -22,6 +22,7 @@ impl IterationBlock {
     return iblock;
   }
 
+  // parse the block into [u64; 16] (from [u8; 128])
   fn parse_block(&self) -> [u64; 16] {
     let mut x : [u64; 16] = [0; 16];
     let mut iteration = 0;
@@ -31,8 +32,8 @@ impl IterationBlock {
     }
     return x;
   }
-
 }
+
 
 // fuse an array of 8 u8 into a u64 BIG ENDIAN
  fn fuse_64(array : &[u8]) -> u64 {
@@ -48,6 +49,7 @@ impl IterationBlock {
   return x;
 }
 
+// function to get the next block to compute from the file
 fn get_next_block(file_buffer : &mut io::BufReader<&fs::File>, iterator : &mut IterationBlock) {
   iterator.buffer = [0; 128]; // reset the buffer
   let n_bytes_readed : usize = io::Read::read(file_buffer, &mut iterator.buffer)
@@ -92,6 +94,8 @@ fn fragment_u128(number : u128) -> [u8; 16] {
   return help_bytes;
 }
 
+/*
+// print the block in a more or less beautiful format
 fn print_block(block : & [u8; 128]) {
   let mut iteration = 0;
   for n in block {
@@ -103,6 +107,7 @@ fn print_block(block : & [u8; 128]) {
   }
 }
 
+// print the block already formated for being computed
 fn print_parsed_block(block : & [u64; 16]) {
   let mut iteration = 0;
   for n in block {
@@ -111,20 +116,95 @@ fn print_parsed_block(block : & [u64; 16]) {
     iteration += 1;
   }
 }
+*/
 
+// print hash
+fn print_hash(hash : &[u64; 8]) {
+  for n in hash {
+    print!("{:0>16x}", n);
+  }
+  println!();
+}
+
+// main function to calculate the hash of a file
 pub fn hash_from_file(file : & fs::File) {
   let mut buffer_read =io::BufReader::new(file);
   let mut iterator = IterationBlock::new();
-  let mut parsed_block : [u64; 16] = [0 ; 16];
+  let mut hash : [u64; 8] = INITHASH;
   while iterator.finished == false {
     get_next_block(&mut buffer_read, &mut iterator);
-    println!();
-    print_block(&iterator.buffer);
-    parsed_block = iterator.parse_block();
-    print_parsed_block(&parsed_block);
+    let parsed_block : [u64; 16] = iterator.parse_block();
+    hash = compute_block(&parsed_block, &hash);
   }
+  print_hash(&hash);
+}
 
+// compute the block, returning the updated hash in each iteration
+fn compute_block(block : & [u64; 16], hash : & [u64; 8]) -> [u64; 8] {
+  let mut message : [u64; 80] = [0; 80];
+  let mut aux_hash : [u64; 8] = *hash;
+  message[0..16].clone_from_slice(&block[0..16]);
+  for n in 16..80 {
+    message[n] = calculate_schedule(&message, n);
+  }
+  for n in 0..80 {
+    let t1 = calculate_t1(&message, &aux_hash, n);
+    let t2 = calculate_t2(&aux_hash, n);
+    aux_hash[7] = aux_hash[6];
+    aux_hash[6] = aux_hash[5];
+    aux_hash[5] = aux_hash[4];
+    aux_hash[4] = aux_hash[3].wrapping_add(t1);
+    aux_hash[3] = aux_hash[2];
+    aux_hash[2] = aux_hash[1];
+    aux_hash[1] = aux_hash[0];
+    aux_hash[0] = t1.wrapping_add(t2);
+  };
+  let mut new_hash : [u64; 8] = [0; 8];
+  new_hash[0] = aux_hash[0].wrapping_add(hash[0]);
+  new_hash[1] = aux_hash[1].wrapping_add(hash[1]);
+  new_hash[2] = aux_hash[2].wrapping_add(hash[2]);
+  new_hash[3] = aux_hash[3].wrapping_add(hash[3]);
+  new_hash[4] = aux_hash[4].wrapping_add(hash[4]);
+  new_hash[5] = aux_hash[5].wrapping_add(hash[5]);
+  new_hash[6] = aux_hash[6].wrapping_add(hash[6]);
+  new_hash[7] = aux_hash[7].wrapping_add(hash[7]);
 
+  return new_hash;
+}
+
+// Calculate the value of T1
+fn calculate_t1(message : & [u64; 80], hash : & [u64; 8], iteration : usize) -> u64 {
+  assert!(iteration < 80);
+  let x : u64 = {
+    hash[7]
+    .wrapping_add(upper_sigma1(hash[4]))
+    .wrapping_add(choose(hash[4], hash[5], hash[6]))
+    .wrapping_add(KCONSTANTS[iteration])
+    .wrapping_add(message[iteration])
+  };
+  return x;
+}
+
+// Calculate the value of T2
+fn calculate_t2(hash : & [u64; 8], iteration : usize) -> u64 {
+  assert!(iteration < 80);
+  let x : u64 = {
+    upper_sigma0(hash[0])
+    .wrapping_add(majority(hash[0], hash[1], hash[2]))
+  };
+  return x;
+}
+
+// Calculate the values of schedules for 16 <= n <= 79
+fn calculate_schedule(message : & [u64; 80], iteration : usize) -> u64 {
+  assert!(iteration > 15 && iteration < 80);
+  let x : u64 = {
+    lower_sigma1(message[iteration - 2])
+    .wrapping_add(message[iteration - 7])
+    .wrapping_add(lower_sigma0(message[iteration - 15]))
+    .wrapping_add(message[iteration - 16])
+  };
+  return x;
 }
 
 #[inline]
@@ -151,14 +231,14 @@ pub fn upper_sigma1 (x : u64) -> u64 {
 pub fn lower_sigma0 (x : u64) -> u64 {
   BasicFunctions::right_rotation(&x, 1) ^
   BasicFunctions::right_rotation(&x, 8) ^
-  BasicFunctions::right_rotation(&x, 7)
+  BasicFunctions::right_shift(&x, 7)
 }
 
 #[inline]
 pub fn lower_sigma1 (x : u64) -> u64 {
   BasicFunctions::right_rotation(&x, 19) ^
   BasicFunctions::right_rotation(&x, 61) ^
-  BasicFunctions::right_rotation(&x, 6)
+  BasicFunctions::right_shift(&x, 6)
 }
 
 // First 64 bits of the fractional part of the cube roots of the first eighty prime numbers
