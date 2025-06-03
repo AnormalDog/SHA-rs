@@ -1,13 +1,22 @@
 
 # SHA-rs
+## About
+Library that implement multiple secure hash algorithms functions in rust. 
 
-A library that implement multiple functions in rust. I made this only for learn, as I am new in the language (and programming in general)
+## Usage
+- The library count with a struct for function implemented
+- inside the trail Hash there are two functions that return a struct
+  - from_file(file : & fs::File)
+  - from_string(string : & str)
 
-## Planned functions
-
+## Planned functions implementations
 - [ ]  SHA256
 - [x]  SHA512
 
-## License
+## Planned struct implementations
+- [x] Print
+- [ ] to_string
+- [ ] to_bytes
 
+## License
 [MIT](https://choosealicense.com/licenses/mit/)
