@@ -10,7 +10,7 @@ Library that implement multiple secure hash algorithms functions in rust.
   - from_string(string : & str)
 
 ## Planned functions implementations
-- [ ]  SHA256
+- [x]  SHA256
 - [x]  SHA512
 
 ## Planned struct implementations

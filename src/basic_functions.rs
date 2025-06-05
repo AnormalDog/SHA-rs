@@ -8,7 +8,6 @@ const U32SIZE : usize = size_of::<u32>() * 8;
 
 pub trait BasicFunctions {
   fn right_shift(&self, n : usize) -> Self;
-  //fn left_rotation(&self, n : usize) -> Self;
   fn right_rotation(&self, n : usize) -> Self;
 }
 
@@ -17,12 +16,7 @@ impl BasicFunctions for u64 {
     assert!(n < U64SIZE);
     (self >> n) | (self << (U64SIZE - n))
   }
-/*
-  fn left_rotation(&self, n : usize) -> Self {
-    assert!(n < U64SIZE);
-    (self << n) | (self >> (U64SIZE - n))
-  }
-*/
+
   fn right_shift(&self, n : usize) -> Self {
     assert!(n < U64SIZE);
     self >> n
@@ -34,12 +28,7 @@ impl BasicFunctions for u32 {
     assert!(n < U32SIZE);
     (self >> n) | (self << (U32SIZE - n))
   }
-/*
-  fn left_rotation(&self, n : usize) -> Self {
-    assert!(n < U32SIZE);
-    (self << n) | (self >> (U32SIZE - n))
-  }
-*/
+
   fn right_shift(&self, n : usize) -> Self {
     assert!(n < U32SIZE);
     self >> n

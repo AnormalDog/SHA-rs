@@ -1,4 +1,3 @@
-
 use std::io;
 use std::fs;
 use crate::basic_functions::BasicFunctions;
@@ -49,7 +48,7 @@ impl IterationBlock {
   return x;
 }
 
-// function to get the next block to compute from the file
+// function to get the next block to compute from a buffer
 fn get_next_block<T : std::io::Read> (file_buffer : &mut io::BufReader<T>, iterator : &mut IterationBlock) {
   iterator.buffer = [0; 128]; // reset the buffer
   let n_bytes_readed : usize = io::Read::read(file_buffer, &mut iterator.buffer)
@@ -83,7 +82,7 @@ fn get_next_block<T : std::io::Read> (file_buffer : &mut io::BufReader<T>, itera
   }
 } // fn get_next_block
 
-// split a u128 value into a an array [u8; 16] BIG ENDIAN
+// split a u128 value into an array [u8; 16] BIG ENDIAN
 fn fragment_u128(number : u128) -> [u8; 16] {
   let mut help_bytes : [u8; 16] = [0; 16];
   let mut iteration : i32 = 15;
@@ -107,6 +106,7 @@ pub fn hash_from_file(file : & fs::File) -> crate::Sha512 {
   return crate::Sha512{hash: hash};
 }
 
+// main function to calculate the hash of a string
 pub fn hash_from_string(string : & str) -> crate::Sha512 {
   let mut buffer_read  = 
     io::BufReader::new(io::Cursor::new(string.to_string()));
@@ -120,7 +120,7 @@ pub fn hash_from_string(string : & str) -> crate::Sha512 {
   return crate::Sha512{hash: hash};
 }
 
-// compute the block, returning the updated hash in each iteration
+// Compute the block, returning the updated hash in each iteration
 fn compute_block(block : & [u64; 16], hash : & [u64; 8]) -> [u64; 8] {
   let mut message : [u64; 80] = [0; 80];
   let mut aux_hash : [u64; 8] = *hash;
@@ -139,7 +139,7 @@ fn compute_block(block : & [u64; 16], hash : & [u64; 8]) -> [u64; 8] {
     aux_hash[2] = aux_hash[1];
     aux_hash[1] = aux_hash[0];
     aux_hash[0] = t1.wrapping_add(t2);
-  };
+  }
   let mut new_hash : [u64; 8] = [0; 8];
   new_hash[0] = aux_hash[0].wrapping_add(hash[0]);
   new_hash[1] = aux_hash[1].wrapping_add(hash[1]);
